@@ -1,0 +1,44 @@
+require("dotenv").config(); // Load environment variables from .env
+const { Client, GatewayIntentBits } = require("discord.js"); // Import Discord.js client and intents
+const express = require("express"); // Import Express for HTTP server
+const app = express(); // Create Express app
+
+app.use(express.json()); // Parse incoming JSON requests
+
+const client = new Client({
+  intents: [
+    GatewayIntentBits.Guilds,          // Access to servers
+    GatewayIntentBits.GuildMessages,   // See messages
+    GatewayIntentBits.MessageContent,  // Read message text
+    GatewayIntentBits.GuildMembers     // Manage roles/members
+  ]
+});
+
+client.once("ready", () => console.log("Bot's Live!")); // Log when bot is ready
+
+app.post("/assign-role", async (req, res) => { // Define POST endpoint /assign-role
+  const { userDiscordId, role } = req.body; // Get Discord ID and role from request body
+
+  try {
+    const guild = client.guilds.cache.get(process.env.GUILD_ID); // Get server by ID from .env
+    const roleMap = { // Map role names to Discord role IDs
+      frontend: process.env.FRONTEND_ROLE_ID,
+      backend: process.env.BACKEND_ROLE_ID,
+      fullstack: process.env.FULLSTACK_ROLE_ID,
+    };
+
+    const roleId = roleMap[role.toLowerCase()]; // Get role ID from map, lowercase for consistency
+    if (!roleId) throw new Error("Invalid role"); // Error if role isn’t valid
+
+    const member = await guild.members.fetch(userDiscordId); // Fetch member by Discord ID
+    await member.roles.add(roleId); // Add role to member
+    res.json({ success: true }); // Send success response
+
+  } catch (error) { // Catch errors
+    console.error("Role assignment error:", error); // Log error details
+    res.status(500).json({ success: false, error: error.message }); // Return 500 with error
+  }
+});
+
+client.login(process.env.BOT_KEY); // Log bot into Discord with token from .env
+app.listen(3001, () => console.log("Bot server on 3001")); // Start Express server on port 3001
